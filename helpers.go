@@ -56,7 +56,7 @@ func fExist(path string) bool {
 }
 
 func fRead(path string) string {
-	content, err := ioutil.ReadFile(path)
+	content, err := os.ReadFile(path)
 	if err != nil {
 		log.Warning(err)
 		return ""
@@ -73,13 +73,15 @@ func fCreate(path string) error {
 			log.Errorln(err)
 			return err
 		}
-		defer file.Close()
+		defer func(file *os.File) {
+			_ = file.Close()
+		}(file)
 	}
 	return nil
 }
 
 func fWrite(path, content string) error {
-	err := ioutil.WriteFile(path, []byte(content), 0644)
+	err := os.WriteFile(path, []byte(content), 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -123,7 +125,9 @@ func fCopy(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func(in *os.File) {
+		_ = in.Close()
+	}(in)
 	out, err := os.Create(dst)
 	if err != nil {
 		return err
@@ -171,15 +175,17 @@ func fDownload(path, url string, basicAuth bool) error {
 	if resp.StatusCode != 200 {
 		log.Warnf("WARNING: Download file operation for url %s finished with status code %d\n", url, resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
 
-	fCreate(path)
-	fWrite(path, string(body))
+	_ = fCreate(path)
+	_ = fWrite(path, string(body))
 
 	return nil
 }
@@ -206,11 +212,17 @@ func createArchiveFromDir(dir, path string) error {
 		log.Errorf("Error writing archive %s: %s", path, err)
 		return err
 	}
-	defer out.Close()
+	defer func(out *os.File) {
+		_ = out.Close()
+	}(out)
 	gw := gzip.NewWriter(out)
-	defer gw.Close()
+	defer func(gw *gzip.Writer) {
+		_ = gw.Close()
+	}(gw)
 	tw := tar.NewWriter(gw)
-	defer tw.Close()
+	defer func(tw *tar.Writer) {
+		_ = tw.Close()
+	}(tw)
 
 	// Iterate over files and add them to the tar archive
 	for _, filePath := range files {
@@ -223,14 +235,14 @@ func createArchiveFromDir(dir, path string) error {
 		// Get FileInfo about our file providing file size, mode, etc.
 		info, err := file.Stat()
 		if err != nil {
-			file.Close()
+			_ = file.Close()
 			return err
 		}
 
 		// Create a tar Header from the FileInfo data
 		header, err := tar.FileInfoHeader(info, info.Name())
 		if err != nil {
-			file.Close()
+			_ = file.Close()
 			return err
 		}
 
@@ -239,17 +251,17 @@ func createArchiveFromDir(dir, path string) error {
 		// Write file header to the tar archive
 		err = tw.WriteHeader(header)
 		if err != nil {
-			file.Close()
+			_ = file.Close()
 			return err
 		}
 
 		// Copy file content to tar archive
 		_, err = io.Copy(tw, file)
 		if err != nil {
-			file.Close()
+			_ = file.Close()
 			return err
 		}
-		file.Close()
+		_ = file.Close()
 	}
 
 	return nil

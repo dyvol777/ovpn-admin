@@ -178,6 +178,7 @@ type OvpnAdmin struct {
 	masterHostBasicAuth    bool
 	masterSyncToken        string
 	clients                []OpenvpnClient
+	groups                 []string
 	activeClients          []clientStatus
 	promRegistry           *prometheus.Registry
 	mgmtInterfaces         map[string]string
@@ -203,18 +204,24 @@ type openvpnClientConfig struct {
 }
 
 type OpenvpnClient struct {
-	Identity         string `json:"Identity"`
-	AccountStatus    string `json:"AccountStatus"`
-	ExpirationDate   string `json:"ExpirationDate"`
-	RevocationDate   string `json:"RevocationDate"`
-	ConnectionStatus string `json:"ConnectionStatus"`
-	Connections      int    `json:"Connections"`
+	Identity         string   `json:"Identity"`
+	AccountStatus    string   `json:"AccountStatus"`
+	ExpirationDate   string   `json:"ExpirationDate"`
+	RevocationDate   string   `json:"RevocationDate"`
+	ConnectionStatus string   `json:"ConnectionStatus"`
+	Connections      int      `json:"Connections"`
+	Groups           []string `json:"Groups"`
 }
 
 type ccdRoute struct {
 	Address     string `json:"Address"`
 	Mask        string `json:"Mask"`
 	Description string `json:"Description"`
+}
+
+type userGroups struct {
+	User   string   `json:"User"`
+	Groups []string `json:"Groups"`
 }
 
 type Ccd struct {
@@ -249,14 +256,14 @@ type clientStatus struct {
 func (oAdmin *OvpnAdmin) userListHandler(w http.ResponseWriter, r *http.Request) {
 	log.Info(r.RemoteAddr, " ", r.RequestURI)
 	usersList, _ := json.Marshal(oAdmin.clients)
-	fmt.Fprintf(w, "%s", usersList)
+	_, _ = fmt.Fprintf(w, "%s", usersList)
 }
 
 func (oAdmin *OvpnAdmin) userStatisticHandler(w http.ResponseWriter, r *http.Request) {
 	log.Info(r.RemoteAddr, " ", r.RequestURI)
 	_ = r.ParseForm()
 	userStatistic, _ := json.Marshal(oAdmin.getUserStatistic(r.FormValue("username")))
-	fmt.Fprintf(w, "%s", userStatistic)
+	_, _ = fmt.Fprintf(w, "%s", userStatistic)
 }
 
 func (oAdmin *OvpnAdmin) userCreateHandler(w http.ResponseWriter, r *http.Request) {
@@ -271,7 +278,7 @@ func (oAdmin *OvpnAdmin) userCreateHandler(w http.ResponseWriter, r *http.Reques
 	if userCreated {
 		oAdmin.clients = oAdmin.usersList()
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, userCreateStatus)
+		_, _ = fmt.Fprintf(w, userCreateStatus)
 		return
 	} else {
 		http.Error(w, userCreateStatus, http.StatusUnprocessableEntity)
@@ -289,7 +296,7 @@ func (oAdmin *OvpnAdmin) userRotateHandler(w http.ResponseWriter, r *http.Reques
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	} else {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, msg)
+		_, _ = fmt.Fprintf(w, msg)
 	}
 }
 
@@ -305,7 +312,7 @@ func (oAdmin *OvpnAdmin) userDeleteHandler(w http.ResponseWriter, r *http.Reques
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	} else {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, msg)
+		_, _ = fmt.Fprintf(w, msg)
 	}
 }
 
@@ -321,7 +328,7 @@ func (oAdmin *OvpnAdmin) userRevokeHandler(w http.ResponseWriter, r *http.Reques
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	} else {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, msg)
+		_, _ = fmt.Fprintf(w, msg)
 	}
 }
 
@@ -337,7 +344,7 @@ func (oAdmin *OvpnAdmin) userUnrevokeHandler(w http.ResponseWriter, r *http.Requ
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	} else {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, msg)
+		_, _ = fmt.Fprintf(w, msg)
 	}
 }
 
@@ -348,11 +355,11 @@ func (oAdmin *OvpnAdmin) userChangePasswordHandler(w http.ResponseWriter, r *htt
 		err, msg := oAdmin.userChangePassword(r.FormValue("username"), r.FormValue("password"))
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(w, `{"status":"error", "message": "%s"}`, msg)
+			_, _ = fmt.Fprintf(w, `{"status":"error", "message": "%s"}`, msg)
 
 		} else {
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprintf(w, `{"status":"ok", "message": "%s"}`, msg)
+			_, _ = fmt.Fprintf(w, `{"status":"ok", "message": "%s"}`, msg)
 		}
 	} else {
 		http.Error(w, `{"status":"error"}`, http.StatusNotImplemented)
@@ -363,21 +370,21 @@ func (oAdmin *OvpnAdmin) userChangePasswordHandler(w http.ResponseWriter, r *htt
 func (oAdmin *OvpnAdmin) userShowConfigHandler(w http.ResponseWriter, r *http.Request) {
 	log.Info(r.RemoteAddr, " ", r.RequestURI)
 	_ = r.ParseForm()
-	fmt.Fprintf(w, "%s", oAdmin.renderClientConfig(r.FormValue("username")))
+	_, _ = fmt.Fprintf(w, "%s", oAdmin.renderClientConfig(r.FormValue("username")))
 }
 
 func (oAdmin *OvpnAdmin) userDisconnectHandler(w http.ResponseWriter, r *http.Request) {
 	log.Info(r.RemoteAddr, " ", r.RequestURI)
 	_ = r.ParseForm()
 	// 	fmt.Fprintf(w, "%s", userDisconnect(r.FormValue("username")))
-	fmt.Fprintf(w, "%s", r.FormValue("username"))
+	_, _ = fmt.Fprintf(w, "%s", r.FormValue("username"))
 }
 
 func (oAdmin *OvpnAdmin) userShowCcdHandler(w http.ResponseWriter, r *http.Request) {
 	log.Info(r.RemoteAddr, " ", r.RequestURI)
 	_ = r.ParseForm()
 	ccd, _ := json.Marshal(oAdmin.getCcd(r.FormValue("username")))
-	fmt.Fprintf(w, "%s", ccd)
+	_, _ = fmt.Fprintf(w, "%s", ccd)
 }
 
 func (oAdmin *OvpnAdmin) userApplyCcdHandler(w http.ResponseWriter, r *http.Request) {
@@ -401,11 +408,45 @@ func (oAdmin *OvpnAdmin) userApplyCcdHandler(w http.ResponseWriter, r *http.Requ
 
 	if ccdApplied {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, applyStatus)
+		_, _ = fmt.Fprintf(w, applyStatus)
 		return
 	} else {
 		http.Error(w, applyStatus, http.StatusUnprocessableEntity)
 	}
+}
+
+func (oAdmin *OvpnAdmin) userApplyGroupsHandler(w http.ResponseWriter, r *http.Request) {
+	log.Info(r.RemoteAddr, " ", r.RequestURI)
+	if oAdmin.role == "slave" {
+		http.Error(w, `{"status":"error"}`, http.StatusLocked)
+		return
+	}
+	var userGroups userGroups
+	if r.Body == nil {
+		http.Error(w, "Please send a request body", http.StatusBadRequest)
+		return
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&userGroups)
+	if err != nil {
+		log.Errorln(err)
+	}
+
+	groupsApplied, applyStatus := oAdmin.modifyGroups(userGroups)
+
+	if groupsApplied {
+		w.WriteHeader(http.StatusOK)
+		_, _ = fmt.Fprintf(w, applyStatus)
+		return
+	} else {
+		http.Error(w, applyStatus, http.StatusUnprocessableEntity)
+	}
+}
+
+func (oAdmin *OvpnAdmin) groupsListHandler(w http.ResponseWriter, r *http.Request) {
+	log.Info(r.RemoteAddr, " ", r.RequestURI)
+	groupsList, _ := json.Marshal(oAdmin.groups)
+	_, _ = fmt.Fprintf(w, "%s", groupsList)
 }
 
 func (oAdmin *OvpnAdmin) serverSettingsHandler(w http.ResponseWriter, r *http.Request) {
@@ -414,17 +455,17 @@ func (oAdmin *OvpnAdmin) serverSettingsHandler(w http.ResponseWriter, r *http.Re
 	if enabledModulesErr != nil {
 		log.Errorln(enabledModulesErr)
 	}
-	fmt.Fprintf(w, `{"status":"ok", "serverRole": "%s", "modules": %s }`, oAdmin.role, string(enabledModules))
+	_, _ = fmt.Fprintf(w, `{"status":"ok", "serverRole": "%s", "modules": %s }`, oAdmin.role, string(enabledModules))
 }
 
 func (oAdmin *OvpnAdmin) lastSyncTimeHandler(w http.ResponseWriter, r *http.Request) {
 	log.Debug(r.RemoteAddr, " ", r.RequestURI)
-	fmt.Fprint(w, oAdmin.lastSyncTime)
+	_, _ = fmt.Fprint(w, oAdmin.lastSyncTime)
 }
 
 func (oAdmin *OvpnAdmin) lastSuccessfulSyncTimeHandler(w http.ResponseWriter, r *http.Request) {
 	log.Debug(r.RemoteAddr, " ", r.RequestURI)
-	fmt.Fprint(w, oAdmin.lastSuccessfulSyncTime)
+	_, _ = fmt.Fprint(w, oAdmin.lastSuccessfulSyncTime)
 }
 
 func (oAdmin *OvpnAdmin) downloadCertsHandler(w http.ResponseWriter, r *http.Request) {
@@ -560,6 +601,9 @@ func main() {
 	http.HandleFunc("/api/user/statistic", ovpnAdmin.userStatisticHandler)
 	http.HandleFunc("/api/user/ccd", ovpnAdmin.userShowCcdHandler)
 	http.HandleFunc("/api/user/ccd/apply", ovpnAdmin.userApplyCcdHandler)
+	http.HandleFunc("/api/user/groups/apply", ovpnAdmin.userApplyGroupsHandler)
+
+	http.HandleFunc("/api/groups/list", ovpnAdmin.groupsListHandler)
 
 	http.HandleFunc("/api/sync/last/try", ovpnAdmin.lastSyncTimeHandler)
 	http.HandleFunc("/api/sync/last/successful", ovpnAdmin.lastSuccessfulSyncTimeHandler)
@@ -568,7 +612,7 @@ func main() {
 
 	http.Handle(*metricsPath, promhttp.HandlerFor(ovpnAdmin.promRegistry, promhttp.HandlerOpts{}))
 	http.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "pong")
+		_, _ = fmt.Fprintf(w, "pong")
 	})
 
 	log.Printf("Bind: http://%s:%s", *listenHost, *listenPort)
@@ -600,6 +644,7 @@ func (oAdmin *OvpnAdmin) registerMetrics() {
 func (oAdmin *OvpnAdmin) setState() {
 	oAdmin.activeClients = oAdmin.mgmtGetActiveClients()
 	oAdmin.clients = oAdmin.usersList()
+	oAdmin.groups = oAdmin.groupList()
 
 	ovpnServerCaCertExpire.Set(float64((getOvpnCaCertExpireDate().Unix() - time.Now().Unix()) / 3600 / 24))
 }
@@ -785,6 +830,29 @@ func (oAdmin *OvpnAdmin) modifyCcd(ccd Ccd) (bool, string) {
 	return false, "something goes wrong"
 }
 
+func (oAdmin *OvpnAdmin) modifyGroups(g userGroups) (bool, string) {
+	valid, err := validateGroups(g)
+	if err != "" {
+		return false, err
+	}
+
+	if valid {
+		tmp := strings.Join(g.Groups, "\n")
+		if *storageBackend == "kubernetes.secrets" {
+			return false, "unsupported"
+		} else {
+			err := fWrite(*ccdDir+"/userGroups/"+g.User, tmp)
+			if err != nil {
+				log.Errorf("modifyGroups: fWrite(): %v", err)
+			}
+		}
+
+		return true, "groups updated successfully"
+	}
+
+	return false, "something goes wrong"
+}
+
 func validateCcd(ccd Ccd) (bool, string) {
 
 	ccdErr := ""
@@ -829,6 +897,46 @@ func validateCcd(ccd Ccd) (bool, string) {
 	}
 
 	return true, ccdErr
+}
+
+func validateGroups(g userGroups) (bool, string) {
+	groupErr := ""
+	username := g.User
+	if !checkUserExist(username) {
+		groupErr = fmt.Sprintf("User \"%s\" doesn't exists\n", username)
+		log.Debugf("modify group: checkUserExist():  %s", groupErr)
+		return false, groupErr
+	}
+
+	for _, group := range g.Groups {
+		if !checkGroupExist(group) {
+			groupErr = fmt.Sprintf("Group \"%s\" doesn't exist", group)
+			log.Debugf("modify group for user %s: %s", g.User, group)
+			return false, groupErr
+		}
+	}
+
+	return true, groupErr
+}
+
+func (oAdmin *OvpnAdmin) getGroups(username string) []string {
+	log.Debugf("Get groups for user %s", username)
+
+	var groups []string
+	if *storageBackend == "kubernetes.secrets" {
+		return nil
+	} else {
+		if fExist(*ccdDir + "/userGroups/" + username) {
+			for _, g := range strings.Split(fRead(*ccdDir+"/userGroups/"+username), "\n") {
+				if g != "" {
+					groups = append(groups, g)
+				}
+			}
+			return groups
+		}
+	}
+
+	return nil
 }
 
 func (oAdmin *OvpnAdmin) getCcd(username string) Ccd {
@@ -877,6 +985,36 @@ func checkUserExist(username string) bool {
 	return false
 }
 
+func (oAdmin *OvpnAdmin) groupList() []string {
+	f, err := os.Open(*ccdDir + "/" + "groups")
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+	defer func(f *os.File) {
+		_ = f.Close()
+	}(f)
+
+	files, err := f.Readdir(0)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+
+	var groups []string
+	for _, v := range files {
+		if !v.IsDir() {
+			groups = append(groups, v.Name())
+		}
+	}
+
+	return groups
+}
+
+func checkGroupExist(group string) bool {
+	return fExist(*ccdDir + "/" + "groups/" + group)
+}
+
 func (oAdmin *OvpnAdmin) usersList() []OpenvpnClient {
 	var users []OpenvpnClient
 
@@ -921,6 +1059,8 @@ func (oAdmin *OvpnAdmin) usersList() []OpenvpnClient {
 				}
 				connectedUniqUsers += 1
 			}
+
+			ovpnClient.Groups = oAdmin.getGroups(ovpnClient.Identity)
 
 			users = append(users, ovpnClient)
 
@@ -1314,9 +1454,9 @@ func (oAdmin *OvpnAdmin) mgmtKillUserConnection(username, serverName string) {
 		return
 	}
 	oAdmin.mgmtRead(conn) // read welcome message
-	conn.Write([]byte(fmt.Sprintf("kill %s\n", username)))
+	_, _ = conn.Write([]byte(fmt.Sprintf("kill %s\n", username)))
 	fmt.Printf("%v", oAdmin.mgmtRead(conn))
-	conn.Close()
+	_ = conn.Close()
 }
 
 func (oAdmin *OvpnAdmin) mgmtGetActiveClients() []clientStatus {
@@ -1329,9 +1469,9 @@ func (oAdmin *OvpnAdmin) mgmtGetActiveClients() []clientStatus {
 			break
 		}
 		oAdmin.mgmtRead(conn) // read welcome message
-		conn.Write([]byte("status\n"))
+		_, _ = conn.Write([]byte("status\n"))
 		activeClients = append(activeClients, oAdmin.mgmtConnectedUsersParser(oAdmin.mgmtRead(conn), srv)...)
-		conn.Close()
+		_ = conn.Close()
 	}
 	return activeClients
 }
@@ -1366,9 +1506,9 @@ func (oAdmin *OvpnAdmin) mgmtSetTimeFormat() {
 		}
 
 		oAdmin.mgmtRead(conn) // read welcome message
-		conn.Write([]byte("version\n"))
+		_, _ = conn.Write([]byte("version\n"))
 		out := oAdmin.mgmtRead(conn)
-		conn.Close()
+		_ = conn.Close()
 
 		log.Trace(out)
 
