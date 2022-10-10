@@ -437,6 +437,7 @@ func (oAdmin *OvpnAdmin) userApplyGroupsHandler(w http.ResponseWriter, r *http.R
 	if groupsApplied {
 		w.WriteHeader(http.StatusOK)
 		_, _ = fmt.Fprintf(w, applyStatus)
+		oAdmin.clients = oAdmin.usersList()
 		return
 	} else {
 		http.Error(w, applyStatus, http.StatusUnprocessableEntity)
